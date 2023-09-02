@@ -14,14 +14,6 @@ function Popup() {
   const [grade, setGrade] = useState(null);
 
   useEffect(() => {
-    chrome.runtime.sendMessage({ type: 'requestGrade' }, (response) => {
-      setGrade(response.grade);
-    });
-
-    chrome.runtime.sendMessage({ type: 'requestConditions' }, (response) => {
-      setConditions(response.conditions);
-    });
-
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const domain = new URL(tabs[0].url).hostname;
       const updatedConditions = getUpdatedConditions(domain);
@@ -35,16 +27,15 @@ function Popup() {
           updatedConditions["The word 'airdrop' is found in the HTML"] =
             results[0].result;
 
-          chrome.runtime.sendMessage(
-            { type: 'requestDebuggerCheck' },
-            (response) => {
-              updatedConditions['JavaScript invokes the debugger function'] =
-                response.hasDebugger;
-              const determinedGrade = determineGrade(updatedConditions);
-              setConditions(updatedConditions);
-              setGrade(determinedGrade);
-            }
-          );
+          const determinedGrade = determineGrade(updatedConditions);
+          setConditions(updatedConditions);
+          setGrade(determinedGrade);
+
+          // Inform background to update badge
+          chrome.runtime.sendMessage({
+            type: 'updateBadge',
+            grade: determinedGrade,
+          });
         }
       );
     });
