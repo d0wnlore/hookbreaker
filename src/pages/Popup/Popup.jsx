@@ -7,9 +7,8 @@ const INITIAL_CONDITIONS = {
   'Domain has a token name': null,
   'Suspicious keywords are in the title': null,
   'External JavaScript "seaport.js" is loaded': null,
+  'External JavaScript filename is a UUID': null,
 };
-
-const KEYWORDS = ['airdrop', 'sitepoint'];
 
 function Popup() {
   const [conditions, setConditions] = useState(INITIAL_CONDITIONS);
@@ -23,33 +22,26 @@ function Popup() {
       chrome.scripting.executeScript(
         {
           target: { tabId: tabs[0].id },
-          func: seaportJsCheck,
+          func: combinedChecks,
         },
         (results) => {
+          const checks = results[0].result;
           updatedConditions['External JavaScript "seaport.js" is loaded'] =
-            results[0].result;
+            checks.seaportLoaded;
+          updatedConditions['External JavaScript filename is a UUID'] =
+            checks.uuidFilename;
+          updatedConditions['Suspicious keywords are in the title'] =
+            checks.titleContainsAirdrop;
 
-          // Continue with the check for keywords in the title
-          chrome.scripting.executeScript(
-            {
-              target: { tabId: tabs[0].id },
-              func: titleCheck,
-            },
-            (keywordResults) => {
-              updatedConditions['Suspicious keywords are in the title'] =
-                keywordResults[0].result;
+          const determinedGrade = determineGrade(updatedConditions);
+          setConditions(updatedConditions);
+          setGrade(determinedGrade);
 
-              const determinedGrade = determineGrade(updatedConditions);
-              setConditions(updatedConditions);
-              setGrade(determinedGrade);
-
-              // Inform background to update badge
-              chrome.runtime.sendMessage({
-                type: 'updateBadge',
-                grade: determinedGrade,
-              });
-            }
-          );
+          // Inform background to update badge
+          chrome.runtime.sendMessage({
+            type: 'updateBadge',
+            grade: determinedGrade,
+          });
         }
       );
     });
@@ -66,16 +58,30 @@ function Popup() {
     ),
   });
 
-  const titleCheck = () => document.title.toLowerCase().includes('airdrop');
+  const combinedChecks = () => {
+    const result = {
+      seaportLoaded: false,
+      uuidFilename: false,
+      titleContainsAirdrop: document.title.toLowerCase().includes('airdrop'),
+    };
 
-  const seaportJsCheck = () => {
     const scripts = document.querySelectorAll('script');
     for (let script of scripts) {
-      if (script.src && script.src.endsWith('seaport.js')) {
-        return true;
+      if (script.src) {
+        if (script.src.endsWith('seaport.js')) {
+          result.seaportLoaded = true;
+        }
+
+        const filename = script.src.split('/').pop();
+        const uuidPattern =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        if (uuidPattern.test(filename.replace('.js', ''))) {
+          result.uuidFilename = true;
+        }
       }
     }
-    return false;
+
+    return result;
   };
 
   const determineGrade = (updatedConditions) => {
