@@ -1,33 +1,25 @@
 import React, { useEffect, useState } from 'react';
 import './popup.css';
 
+const INITIAL_CONDITIONS = {
+  'Domain has a dash (-)': null,
+  'Domain uses a .ru, .gift TLD': null,
+  'Domain has a token name': null,
+  "The word 'airdrop' is found in the HTML": null,
+};
+
 function Popup() {
-  const [conditions, setConditions] = useState({
-    'Domain has a dash (-)': null,
-    'Domain uses a .ru, .gift TLD': null,
-    'Subdomain has a token name': null,
-    "The word 'airdrop' is found in the HTML": null,
-  });
+  const [conditions, setConditions] = useState(INITIAL_CONDITIONS);
   const [grade, setGrade] = useState('?');
 
   useEffect(() => {
+    chrome.runtime.sendMessage({ type: 'requestGrade' }, (response) => {
+      setGrade(response.grade);
+    });
+
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
       const domain = new URL(tabs[0].url).hostname;
-
-      // Check for dash in domain
-      conditions['Domain has a dash (-)'] = !domain.includes('-');
-
-      // Check for .ru TLD
-      const tlds = ['ru', 'gift'];
-      conditions['Domain uses a .ru, .gift TLD'] = !tlds.some((tld) =>
-        domain.includes(tld)
-      );
-
-      // Check for token name in subdomain
-      const tokens = ['usdc', 'usdt', 'eth', 'btc'];
-      conditions['Subdomain has a token name'] = !tokens.some((token) =>
-        domain.includes(token)
-      );
+      const updatedConditions = getUpdatedConditions(domain);
 
       chrome.scripting.executeScript(
         {
@@ -35,80 +27,45 @@ function Popup() {
           func: contentCheck,
         },
         (results) => {
-          conditions["The word 'airdrop' is found in the HTML"] =
-            !results[0].result;
-
-          // Calculate grade based on conditions
-          const negativeConditions = Object.values(conditions).filter(
-            (val) => val === false
-          ).length;
-          const calculatedGrade = determineGrade(negativeConditions);
-          setGrade(calculatedGrade);
-
-          // Update badge with the new grade
-          chrome.action.setBadgeText({ text: calculatedGrade });
-          chrome.action.setBadgeBackgroundColor({
-            color: determineBadgeColor(negativeConditions),
-          });
-
-          // Update state with new conditions
-          setConditions({ ...conditions });
+          updatedConditions["The word 'airdrop' is found in the HTML"] =
+            results[0].result;
+          const determinedGrade = determineGrade(updatedConditions);
+          setConditions(updatedConditions);
+          setGrade(determinedGrade);
         }
       );
     });
   }, []);
 
-  function contentCheck() {
-    return document.body.innerHTML.toLowerCase().includes('airdrop');
-  }
+  const getUpdatedConditions = (domain) => ({
+    ...conditions,
+    'Domain has a dash (-)': domain.includes('-'),
+    'Domain uses a .ru, .gift TLD': ['.ru', '.gift'].some((tld) =>
+      domain.endsWith(tld)
+    ),
+    'Domain has a token name': ['usdc', 'usdt', 'eth', 'apecoin'].some(
+      (token) => domain.includes(token)
+    ),
+  });
 
-  function determineGrade(negativeConditions) {
-    switch (negativeConditions) {
-      case 0:
-        return 'A';
-      case 1:
-        return 'B';
-      case 2:
-        return 'C';
-      case 3:
-        return 'D';
-      case 4:
-        return 'F';
-      default:
-        return '???';
-    }
-  }
+  const contentCheck = () =>
+    document.body.innerHTML.toLowerCase().includes('airdrop');
 
-  function determineBadgeColor(negativeConditions) {
-    switch (negativeConditions) {
-      case 0:
-        return '#00FF00'; // Green
-      case 1:
-        return '#ADFF2F'; // Yellowish Green
-      case 2:
-        return '#FFFF00'; // Yellow
-      case 3:
-        return '#FFA500'; // Orange
-      case 4:
-        return '#FF0000'; // Red
-      default:
-        return '#888888'; // Grey
-    }
-  }
+  const determineGrade = (updatedConditions) => {
+    const negativeConditionsCount =
+      Object.values(updatedConditions).filter(Boolean).length;
+    const grades = ['A', 'B', 'C', 'D', 'F'];
+    return grades[Math.min(negativeConditionsCount, 4)];
+  };
 
   return (
     <div className="App">
       <h1>Grade: {grade}</h1>
       <p>Final grade based on:</p>
       <ul>
-        {Object.keys(conditions).map((condition, index) => (
+        {Object.entries(conditions).map(([condition, value], index) => (
           <li key={index}>
-            {condition}:{' '}
-            {conditions[condition] === null
-              ? '⏳'
-              : conditions[condition]
-              ? '✅'
-              : '🚫'}
+            {condition}: {value === null ? '⏳' : value ? '✅' : '🚫'}
           </li>
         ))}
       </ul>
