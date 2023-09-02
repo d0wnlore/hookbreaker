@@ -6,15 +6,20 @@ const INITIAL_CONDITIONS = {
   'Domain uses a .ru, .gift TLD': null,
   'Domain has a token name': null,
   "The word 'airdrop' is found in the HTML": null,
+  'JavaScript invokes the debugger function': null,
 };
 
 function Popup() {
   const [conditions, setConditions] = useState(INITIAL_CONDITIONS);
-  const [grade, setGrade] = useState(null); // Initialized to null for clarity
+  const [grade, setGrade] = useState(null);
 
   useEffect(() => {
     chrome.runtime.sendMessage({ type: 'requestGrade' }, (response) => {
       setGrade(response.grade);
+    });
+
+    chrome.runtime.sendMessage({ type: 'requestConditions' }, (response) => {
+      setConditions(response.conditions);
     });
 
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -29,9 +34,17 @@ function Popup() {
         (results) => {
           updatedConditions["The word 'airdrop' is found in the HTML"] =
             results[0].result;
-          const determinedGrade = determineGrade(updatedConditions);
-          setConditions(updatedConditions);
-          setGrade(determinedGrade);
+
+          chrome.runtime.sendMessage(
+            { type: 'requestDebuggerCheck' },
+            (response) => {
+              updatedConditions['JavaScript invokes the debugger function'] =
+                response.hasDebugger;
+              const determinedGrade = determineGrade(updatedConditions);
+              setConditions(updatedConditions);
+              setGrade(determinedGrade);
+            }
+          );
         }
       );
     });
@@ -60,7 +73,6 @@ function Popup() {
 
   return (
     <div className="App">
-      {/* Conditionally render the grade */}
       {grade ? <h1>Grade: {grade}</h1> : <h1>Grade: Not Determined</h1>}
       <p>Final grade based on:</p>
       <ul>
