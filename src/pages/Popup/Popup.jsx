@@ -10,7 +10,7 @@ const INITIAL_CONDITIONS = {
 
 function Popup() {
   const [conditions, setConditions] = useState(INITIAL_CONDITIONS);
-  const [grade, setGrade] = useState('?');
+  const [grade, setGrade] = useState(null); // Initialized to null for clarity
 
   useEffect(() => {
     chrome.runtime.sendMessage({ type: 'requestGrade' }, (response) => {
@@ -60,7 +60,8 @@ function Popup() {
 
   return (
     <div className="App">
-      <h1>Grade: {grade}</h1>
+      {/* Conditionally render the grade */}
+      {grade ? <h1>Grade: {grade}</h1> : <h1>Grade: Not Determined</h1>}
       <p>Final grade based on:</p>
       <ul>
         {Object.entries(conditions).map(([condition, value], index) => (
