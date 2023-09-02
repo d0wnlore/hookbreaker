@@ -3,11 +3,11 @@ import './popup.css';
 
 const INITIAL_CONDITIONS = {
   'Domain has a dash (-)': null,
-  'Domain uses a .ru, .gift TLD': null,
-  'Domain has a token name': null,
+  'Domain uses a suspicious TLD': null,
+  'Domain has suspicious keywords': null,
   'Suspicious keywords are in the title': null,
-  'External JavaScript "seaport.js" is loaded': null,
-  'External JavaScript filename is a UUID': null,
+  'Loads a known NFT drainer script': null,
+  'Loads JavaScript with suspicious filenames': null,
 };
 
 function Popup() {
@@ -26,9 +26,9 @@ function Popup() {
         },
         (results) => {
           const checks = results[0].result;
-          updatedConditions['External JavaScript "seaport.js" is loaded'] =
+          updatedConditions['Loads a known NFT drainer script'] =
             checks.seaportLoaded;
-          updatedConditions['External JavaScript filename is a UUID'] =
+          updatedConditions['Loads JavaScript with suspicious filenames'] =
             checks.uuidFilename;
           updatedConditions['Suspicious keywords are in the title'] =
             checks.titleContainsAirdrop;
@@ -50,12 +50,15 @@ function Popup() {
   const getUpdatedConditions = (domain) => ({
     ...conditions,
     'Domain has a dash (-)': domain.includes('-'),
-    'Domain uses a .ru, .gift TLD': ['.ru', '.gift'].some((tld) =>
+    'Domain uses a suspicious TLD': ['.ru', '.gift'].some((tld) =>
       domain.endsWith(tld)
     ),
-    'Domain has a token name': ['usdc', 'usdt', 'eth', 'apecoin'].some(
-      (token) => domain.includes(token)
-    ),
+    'Domain has suspicious keywords': [
+      'usdc',
+      'usdt',
+      'apecoin',
+      'whitelist',
+    ].some((token) => domain.includes(token)),
   });
 
   const combinedChecks = () => {
