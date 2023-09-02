@@ -5,9 +5,11 @@ const INITIAL_CONDITIONS = {
   'Domain has a dash (-)': null,
   'Domain uses a .ru, .gift TLD': null,
   'Domain has a token name': null,
-  "The word 'airdrop' is found in the HTML": null,
-  'JavaScript invokes the debugger function': null,
+  'Suspicious keywords are in the title': null,
+  'External JavaScript "seaport.js" is loaded': null,
 };
+
+const KEYWORDS = ['airdrop', 'sitepoint'];
 
 function Popup() {
   const [conditions, setConditions] = useState(INITIAL_CONDITIONS);
@@ -21,21 +23,33 @@ function Popup() {
       chrome.scripting.executeScript(
         {
           target: { tabId: tabs[0].id },
-          func: contentCheck,
+          func: seaportJsCheck,
         },
         (results) => {
-          updatedConditions["The word 'airdrop' is found in the HTML"] =
+          updatedConditions['External JavaScript "seaport.js" is loaded'] =
             results[0].result;
 
-          const determinedGrade = determineGrade(updatedConditions);
-          setConditions(updatedConditions);
-          setGrade(determinedGrade);
+          // Continue with the check for keywords in the title
+          chrome.scripting.executeScript(
+            {
+              target: { tabId: tabs[0].id },
+              func: titleCheck,
+            },
+            (keywordResults) => {
+              updatedConditions['Suspicious keywords are in the title'] =
+                keywordResults[0].result;
 
-          // Inform background to update badge
-          chrome.runtime.sendMessage({
-            type: 'updateBadge',
-            grade: determinedGrade,
-          });
+              const determinedGrade = determineGrade(updatedConditions);
+              setConditions(updatedConditions);
+              setGrade(determinedGrade);
+
+              // Inform background to update badge
+              chrome.runtime.sendMessage({
+                type: 'updateBadge',
+                grade: determinedGrade,
+              });
+            }
+          );
         }
       );
     });
@@ -52,8 +66,17 @@ function Popup() {
     ),
   });
 
-  const contentCheck = () =>
-    document.body.innerHTML.toLowerCase().includes('airdrop');
+  const titleCheck = () => document.title.toLowerCase().includes('airdrop');
+
+  const seaportJsCheck = () => {
+    const scripts = document.querySelectorAll('script');
+    for (let script of scripts) {
+      if (script.src && script.src.endsWith('seaport.js')) {
+        return true;
+      }
+    }
+    return false;
+  };
 
   const determineGrade = (updatedConditions) => {
     const negativeConditionsCount =

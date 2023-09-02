@@ -2,18 +2,26 @@ let currentGrade = '?';
 
 chrome.tabs.onActivated.addListener((activeInfo) => {
   // Clear the badge when switching tabs
-  clearBadge();
+  clearBadge(activeInfo.tabId);
 });
 
-function clearBadge() {
-  chrome.action.setBadgeText({ text: '' });
+// Clear the badge when navigating to a new URL or reloading a tab
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'loading') {
+    clearBadge(tabId);
+  }
+});
+
+function clearBadge(tabId) {
+  chrome.action.setBadgeText({ text: '', tabId });
 }
 
-function setBadge(grade) {
-  chrome.action.setBadgeText({ text: grade });
+function setBadge(grade, tabId) {
+  chrome.action.setBadgeText({ text: grade, tabId });
   const conditionsCount = gradeToConditionsCount(grade);
   chrome.action.setBadgeBackgroundColor({
     color: determineBadgeColor(conditionsCount),
+    tabId,
   });
 }
 
@@ -38,7 +46,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'updateBadge') {
     const grade = message.grade;
     currentGrade = grade;
-    setBadge(grade);
+    setBadge(grade, sender.tab.id);
   } else if (message.type === 'requestGrade') {
     sendResponse({ grade: currentGrade });
   }
