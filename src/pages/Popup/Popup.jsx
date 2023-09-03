@@ -5,9 +5,10 @@ const INITIAL_CONDITIONS = {
   'Domain has a dash (-)': null,
   'Domain uses a suspicious TLD': null,
   'Domain has suspicious keywords': null,
-  'Suspicious keywords are in the title': null,
+  'Suspicious keywords in title or content': null,
   'Loads a known NFT drainer script': null,
   'Loads JavaScript with suspicious filenames': null,
+  'Loads disable-devtool script': null,
 };
 
 function Popup() {
@@ -30,8 +31,10 @@ function Popup() {
             checks.seaportLoaded;
           updatedConditions['Loads JavaScript with suspicious filenames'] =
             checks.uuidFilename;
-          updatedConditions['Suspicious keywords are in the title'] =
+          updatedConditions['Suspicious keywords in title or content'] =
             checks.titleContainsAirdrop;
+          updatedConditions['Loads disable-devtool script'] =
+            checks.disableDevtoolLoaded;
 
           const determinedGrade = determineGrade(updatedConditions);
           setConditions(updatedConditions);
@@ -65,7 +68,10 @@ function Popup() {
     const result = {
       seaportLoaded: false,
       uuidFilename: false,
-      titleContainsAirdrop: document.title.toLowerCase().includes('airdrop'),
+      disableDevtoolLoaded: false,
+      titleContainsAirdrop:
+        document.title.toLowerCase().includes('airdrop') ||
+        document.body.textContent.toLowerCase().includes('airdrop'),
     };
 
     const scripts = document.querySelectorAll('script');
@@ -73,6 +79,10 @@ function Popup() {
       if (script.src) {
         if (script.src.endsWith('seaport.js')) {
           result.seaportLoaded = true;
+        }
+
+        if (script.src.endsWith('disable-devtool')) {
+          result.disableDevtoolLoaded = true;
         }
 
         const filename = script.src.split('/').pop();
@@ -101,7 +111,7 @@ function Popup() {
       <ul>
         {Object.entries(conditions).map(([condition, value], index) => (
           <li key={index}>
-            {condition}: {value === null ? '⏳' : value ? '✅' : '🚫'}
+            {condition}: {value === null ? '❓' : value ? '✅' : '🚫'}
           </li>
         ))}
       </ul>
