@@ -50,6 +50,20 @@ function Popup() {
     });
   }, []);
 
+  const determineGradeColor = (grade) => {
+    const grades = ['A', 'B', 'C', 'D', 'F'];
+    const colors = [
+      '#00FF00',
+      '#ADFF2F',
+      '#FFFF00',
+      '#FFA500',
+      '#FF0000',
+      '#888888',
+    ];
+    const index = grades.indexOf(grade);
+    return colors[Math.min(index, 5)];
+  };
+
   const getUpdatedConditions = (domain) => ({
     ...conditions,
     'Domain has a dash (-)': domain.includes('-'),
@@ -104,9 +118,23 @@ function Popup() {
     return grades[Math.min(negativeConditionsCount, 4)];
   };
 
+  const isPhishingGrade = (grade) => {
+    const phishingGrades = ['C', 'D', 'F'];
+    return phishingGrades.includes(grade);
+  };
+
   return (
     <div className="App">
-      {grade ? <h1>Grade: {grade}</h1> : <h1>Grade: Not Determined</h1>}
+      {grade ? (
+        <>
+          <h1 style={{ color: determineGradeColor(grade) }}>Grade: {grade}</h1>
+          {isPhishingGrade(grade) && (
+            <h2 style={{ color: 'red' }}>🎣 Phishing</h2>
+          )}
+        </>
+      ) : (
+        <h1>Grade: Not Determined</h1>
+      )}
       <p>Final grade based on:</p>
       <ul>
         {Object.entries(conditions).map(([condition, value], index) => (
